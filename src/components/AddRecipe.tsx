@@ -19,8 +19,7 @@ const AddRecipe = () => {
   const [cuisineId, setCuisineId] = useState<number>(0);
   const [cuisineOptions, setCuisineOptions] = useState<any[]>([]);
   const [message, setMessage] = useState<string>("");
-  const [image, setImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   const navigate = useNavigate();
 
   // Получение токена из LocalStorage
@@ -63,13 +62,6 @@ const AddRecipe = () => {
     if (token) fetchData();
   }, [token]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImage(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
   const handleIngredientSelection = (ingredientId: number) => {
     setIngredients((prev) =>
       prev.includes(ingredientId) ? prev.filter((id) => id !== ingredientId) : [...prev, ingredientId]
@@ -85,44 +77,40 @@ const AddRecipe = () => {
     }
 
     try {
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('description', description);
-        formData.append('instructions', instructions);
-        formData.append('prepTime', prepTime);
-        formData.append('cookTime', cookTime);
-        formData.append('servings', servings);
-        formData.append('category', category);
-        formData.append('ingredients', JSON.stringify(ingredients.map(id => ({ id }))));
-        formData.append('author', JSON.stringify({ id: authorId }));
-        formData.append('type', JSON.stringify({ id: typeId }));
-        formData.append('cuisine', JSON.stringify({ id: cuisineId }));
-        
-        if (image) {
-          formData.append('image', image);
+      const recipeData = {
+        title,
+        description,
+        instructions,
+        prepTime: parseInt(prepTime),
+        cookTime: parseInt(cookTime),
+        servings: parseInt(servings),
+        category,
+        ingredients: ingredients.map((id) => ({ id })),
+        author: { id: authorId }, 
+        type: { id: typeId }, 
+        cuisine: { id: cuisineId }, 
+      };
+
+      const response = await axios.post(
+        `http://localhost:8080/api/client/recipes/create`,
+        recipeData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-  
-        const response = await axios.post(
-          `http://localhost:8080/api/admin/recipes/create`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'multipart/form-data',
-            },
-          }
-        );
-  
-        setMessage("Recipe added successfully!");
-        navigate(`/dish/${response.data.id}`);
-      } catch (error: any) {
-        console.error("Error adding recipe:", error);
-        setMessage(
-          error.response?.data?.message || "Failed to add recipe. Please check your input."
-        );
-      }
-    };
-  
+      );
+
+      setMessage("Recipe added successfully!");
+      navigate(`/dish/${response.data.id}`); 
+    } catch (error: any) {
+      console.error("Error adding recipe:", error);
+      setMessage(
+        error.response?.data?.message || "Failed to add recipe. Please check your input."
+      );
+    }
+  };
 
   return (
     <div className="add-recipe-container">
@@ -136,17 +124,6 @@ const AddRecipe = () => {
             onChange={(e) => setTitle(e.target.value)}
             required
           />
-        </label>
-        <label className="image-upload">
-          Recipe Image:
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-          />
-          {imagePreview && (
-            <img src={imagePreview} alt="Recipe preview" className="image-preview" />
-          )}
         </label>
         <label>
           Description:
@@ -238,21 +215,18 @@ const AddRecipe = () => {
           </select>
         </label>
         <label>
-            Ingredients:
-            <div className="ingredients-list">
-                {ingredientOptions.map((ingredient) => (
-                <div key={ingredient.id} className="ingredient-item">
-                    <input
-                    type="checkbox"
-                    checked={ingredients.includes(ingredient.id)}
-                    onChange={() => handleIngredientSelection(ingredient.id)}
-                    />
-                    {ingredient.name}
-                </div>
-                ))}
+          Ingredients:
+          {ingredientOptions.map((ingredient) => (
+            <div key={ingredient.id}>
+              <input
+                type="checkbox"
+                checked={ingredients.includes(ingredient.id)}
+                onChange={() => handleIngredientSelection(ingredient.id)}
+              />
+              {ingredient.name}
             </div>
+          ))}
         </label>
-        {message && <p className={message.includes("Failed") ? "error" : ""}>{message}</p>}
         <button type="submit">Add Recipe</button>
       </form>
       {message && <p>{message}</p>}
